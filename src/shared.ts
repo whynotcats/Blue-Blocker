@@ -18,7 +18,7 @@ import {
 	ReasonPromoted,
 	HistoryStateGone,
 } from './constants';
-import { commafy, AddUserBlockHistory, EscapeHtml, FormatLegacyName, IsUserLegacyVerified, MakeToast, RemoveUserBlockHistory } from './utilities';
+import { commafy, AddUserBlockHistory, CheckUserNameWithRegex, EscapeHtml, FormatLegacyName, IsUserLegacyVerified, MakeToast, RemoveUserBlockHistory } from './utilities';
 
 // TODO: tbh this file shouldn't even exist anymore and should be
 // split between content/startup.ts and utilities.ts
@@ -30,7 +30,7 @@ const blockCache: Set<string> = new Set();
 export const UnblockCache: Set<string> = new Set();
 
 export function SetHeaders(headers: { [k: string]: string }) {
-	api.storage.local.get({ headers: { }}).then(items => {
+	api.storage.local.get({ headers: {} }).then(items => {
 		// so basically we want to only update items that have values
 		for (const [header, value] of Object.entries(headers)) {
 			items.headers[header.toLowerCase()] = value;
@@ -45,7 +45,7 @@ setInterval(UnblockCache.clear, 10 * 60e3);
 
 function unblockUser(user: { name: string, screen_name: string }, user_id: string, reason: number, attempt: number = 1) {
 	UnblockCache.add(user_id);
-	api.storage.sync.get({ unblocked: { } }).then(items => {
+	api.storage.sync.get({ unblocked: {} }).then(items => {
 		items.unblocked[String(user_id)] = user.screen_name;
 		api.storage.sync.set(items);
 	});
@@ -74,69 +74,69 @@ function unblockUser(user: { name: string, screen_name: string }, user_id: strin
 		}
 
 		api.storage.local.get({ headers: null })
-		.then(items => items.headers as { [k: string]: string })
-		.then((req_headers: { [k: string]: string }) => {
-			const body = `user_id=${user_id}`;
-			const headers: { [k: string]: string } = {
-				"content-length": body.length.toString(),
-				"content-type": "application/x-www-form-urlencoded",
-			};
+			.then(items => items.headers as { [k: string]: string })
+			.then((req_headers: { [k: string]: string }) => {
+				const body = `user_id=${user_id}`;
+				const headers: { [k: string]: string } = {
+					"content-length": body.length.toString(),
+					"content-type": "application/x-www-form-urlencoded",
+				};
 
-			for (const header of Headers) {
-				if (req_headers[header]) {
-					headers[header] = req_headers[header];
+				for (const header of Headers) {
+					if (req_headers[header]) {
+						headers[header] = req_headers[header];
+					}
 				}
-			}
 
-			// attempt to manually set the csrf token to the current active cookie
-			const csrf = CsrfTokenRegex.exec(document.cookie);
-			if (csrf) {
-				headers["x-csrf-token"] = csrf[1];
-			} else {
-				// default to the request's csrf token
-				headers["x-csrf-token"] = req_headers["x-csrf-token"];
-			}
-
-			const options: {
-				body: string,
-				headers: { [k: string]: string },
-				method: string,
-				credentials: RequestCredentials,
-			} = {
-				body,
-				headers,
-				method: "POST",
-				credentials: "include",
-			};
-			fetch(url, options).then(response => {
-				if (response.status === 403) {
-					// user has been logged out, we need to stop queue and re-add
-					MakeToast(`could not unblock @${user.screen_name}, you may have been logged out.`, config);
-					console.log(logstr, "user is logged out, failed to unblock user.");
-				}
-				else if (response.status === 404) {
-					// notice the wording here is different than the blocked 404. the difference is that if the user
-					// is unbanned, they will still be blocked and we want the user to know about that
-					MakeToast(`could not unblock @${user.screen_name}, user has been suspended or no longer exists.`, config);
-					console.log(logstr, `failed to unblock ${FormatLegacyName(user)}, user no longer exists`);
-				}
-				else if (response.status >= 300) {
-					MakeToast(`could not unblock @${user.screen_name}, twitter gave an unfamiliar response code.`, config);
-					console.error(logstr, `failed to unblock ${FormatLegacyName(user)}:`, user, response);
-				}
-				else {
-					RemoveUserBlockHistory(user_id).catch(e => console.error(logstr, e));
-					console.log(logstr, `unblocked ${FormatLegacyName(user)}`);
-					MakeToast(`unblocked @${user.screen_name}, they won't be blocked again.`, config);
-				}
-			}).catch(error => {
-				if (attempt < 3) {
-					unblockUser(user, user_id, reason, attempt + 1);
+				// attempt to manually set the csrf token to the current active cookie
+				const csrf = CsrfTokenRegex.exec(document.cookie);
+				if (csrf) {
+					headers["x-csrf-token"] = csrf[1];
 				} else {
-					console.error(logstr, `failed to unblock ${FormatLegacyName(user)}:`, user, error);
+					// default to the request's csrf token
+					headers["x-csrf-token"] = req_headers["x-csrf-token"];
 				}
+
+				const options: {
+					body: string,
+					headers: { [k: string]: string },
+					method: string,
+					credentials: RequestCredentials,
+				} = {
+					body,
+					headers,
+					method: "POST",
+					credentials: "include",
+				};
+				fetch(url, options).then(response => {
+					if (response.status === 403) {
+						// user has been logged out, we need to stop queue and re-add
+						MakeToast(`could not unblock @${user.screen_name}, you may have been logged out.`, config);
+						console.log(logstr, "user is logged out, failed to unblock user.");
+					}
+					else if (response.status === 404) {
+						// notice the wording here is different than the blocked 404. the difference is that if the user
+						// is unbanned, they will still be blocked and we want the user to know about that
+						MakeToast(`could not unblock @${user.screen_name}, user has been suspended or no longer exists.`, config);
+						console.log(logstr, `failed to unblock ${FormatLegacyName(user)}, user no longer exists`);
+					}
+					else if (response.status >= 300) {
+						MakeToast(`could not unblock @${user.screen_name}, twitter gave an unfamiliar response code.`, config);
+						console.error(logstr, `failed to unblock ${FormatLegacyName(user)}:`, user, response);
+					}
+					else {
+						RemoveUserBlockHistory(user_id).catch(e => console.error(logstr, e));
+						console.log(logstr, `unblocked ${FormatLegacyName(user)}`);
+						MakeToast(`unblocked @${user.screen_name}, they won't be blocked again.`, config);
+					}
+				}).catch(error => {
+					if (attempt < 3) {
+						unblockUser(user, user_id, reason, attempt + 1);
+					} else {
+						console.error(logstr, `failed to unblock ${FormatLegacyName(user)}:`, user, error);
+					}
+				});
 			});
-		});
 	});
 }
 
@@ -174,7 +174,7 @@ api.storage.local.onChanged.addListener((items) => {
 						parent.removeChild(b);
 					};
 					const screen_name = EscapeHtml(user.screen_name);  // this shouldn't really do anything, but can't be too careful
-					MakeToast(`blocked ${EscapeHtml(name)} (<a href="/${screen_name}">@${screen_name}</a>)`, config, { html: true, elements: [b]})
+					MakeToast(`blocked ${EscapeHtml(name)} (<a href="/${screen_name}">@${screen_name}</a>)`, config, { html: true, elements: [b] })
 				}
 				break;
 
@@ -211,37 +211,37 @@ function queueBlockUser(user: BlueBlockerUser, user_id: string, reason: number) 
 function checkBlockQueue(): Promise<void> {
 	return new Promise<void>(resolve => {
 		queue.shift()
-		.then(_item => {
-			const item = _item as BlockUser;
-			if (item === undefined) {
-				consumer.stop();
-				return;
-			}
-			const { user, user_id, reason } = item;
-
-			// required for users enqueued before 0.3.0
-			if (user.hasOwnProperty("legacy")) {
-				// @ts-ignore
-				for (const [key, value] of Object.entries(user.legacy)) {
-					// @ts-ignore
-					user[key] = value;
+			.then(_item => {
+				const item = _item as BlockUser;
+				if (item === undefined) {
+					consumer.stop();
+					return;
 				}
-			}
+				const { user, user_id, reason } = item;
 
-			blockUser(user, user_id, reason);
-			resolve();
-		})
-		.catch(error => {
-			console.error(logstr, "unexpected error occurred while processing block queue", error);
-			api.storage.local.set({
-				[EventKey]: {
-					type: ErrorEvent,
-					message: "unexpected error occurred while processing block queue",
-					detail: { error, event: null },
-				},
+				// required for users enqueued before 0.3.0
+				if (user.hasOwnProperty("legacy")) {
+					// @ts-ignore
+					for (const [key, value] of Object.entries(user.legacy)) {
+						// @ts-ignore
+						user[key] = value;
+					}
+				}
+
+				blockUser(user, user_id, reason);
+				resolve();
 			})
-			resolve();
-		});
+			.catch(error => {
+				console.error(logstr, "unexpected error occurred while processing block queue", error);
+				api.storage.local.set({
+					[EventKey]: {
+						type: ErrorEvent,
+						message: "unexpected error occurred while processing block queue",
+						detail: { error, event: null },
+					},
+				})
+				resolve();
+			});
 	});
 }
 
@@ -277,75 +277,75 @@ function blockUser(user: { name: string, screen_name: string }, user_id: string,
 		}
 
 		api.storage.local.get({ headers: null })
-		.then(items => items.headers as { [k: string]: string })
-		.then((req_headers: { [k: string]: string }) => {
-			const body = `user_id=${user_id}`;
-			const headers: { [k: string]: string } = {
-				"content-length": body.length.toString(),
-				"content-type": "application/x-www-form-urlencoded",
-			};
+			.then(items => items.headers as { [k: string]: string })
+			.then((req_headers: { [k: string]: string }) => {
+				const body = `user_id=${user_id}`;
+				const headers: { [k: string]: string } = {
+					"content-length": body.length.toString(),
+					"content-type": "application/x-www-form-urlencoded",
+				};
 
-			for (const header of Headers) {
-				if (req_headers[header]) {
-					headers[header] = req_headers[header];
+				for (const header of Headers) {
+					if (req_headers[header]) {
+						headers[header] = req_headers[header];
+					}
 				}
-			}
 
-			// attempt to manually set the csrf token to the current active cookie
-			const csrf = CsrfTokenRegex.exec(document.cookie);
-			if (csrf) {
-				headers["x-csrf-token"] = csrf[1];
-			} else {
-				// default to the request's csrf token
-				headers["x-csrf-token"] = req_headers["x-csrf-token"];
-			}
-
-			const options: {
-				body: string,
-				headers: { [k: string]: string },
-				method: string,
-				credentials: RequestCredentials,
-			} = {
-				body,
-				headers,
-				method: "POST",
-				credentials: "include",
-			};
-
-			fetch(url, options).then(response => {
-				console.debug(logstr, "block response:", response);
-
-				if (response.status === 403 || response.status === 401) {
-					// user has been logged out, we need to stop queue and re-add
-					consumer.stop();
-					queue.push({user, user_id, reason});
-					api.storage.local.set({ [EventKey]: { type: UserLogoutEvent } });
-					console.log(logstr, "user is logged out, queue consumer has been halted.");
-				}
-				else if (response.status === 404) {
-					AddUserBlockHistory({ user_id, user, reason }, HistoryStateGone).catch(e => console.error(logstr, e));
-					console.log(logstr, `could not block ${FormatLegacyName(user)}, user no longer exists`);
-				}
-				else if (response.status >= 300) {
-					consumer.stop();
-					queue.push({user, user_id, reason});
-					console.error(logstr, `failed to block ${FormatLegacyName(user)}, consumer stopped just in case.`, response);
-				}
-				else {
-					blockCounter.increment();
-					AddUserBlockHistory({ user_id, user, reason }).catch(e => console.error(logstr, e));
-					console.log(logstr, `blocked ${FormatLegacyName(user)} due to ${ReasonMap[reason]}.`);
-					api.storage.local.set({ [EventKey]: { type: UserBlockedEvent, user, user_id, reason } })
-				}
-			}).catch(error => {
-				if (attempt < 3) {
-					blockUser(user, user_id, reason, attempt + 1);
+				// attempt to manually set the csrf token to the current active cookie
+				const csrf = CsrfTokenRegex.exec(document.cookie);
+				if (csrf) {
+					headers["x-csrf-token"] = csrf[1];
 				} else {
-					queue.push({user, user_id, reason});
-					console.error(logstr, `failed to block ${FormatLegacyName(user)}:`, user, error);
+					// default to the request's csrf token
+					headers["x-csrf-token"] = req_headers["x-csrf-token"];
 				}
+
+				const options: {
+					body: string,
+					headers: { [k: string]: string },
+					method: string,
+					credentials: RequestCredentials,
+				} = {
+					body,
+					headers,
+					method: "POST",
+					credentials: "include",
+				};
+
+				fetch(url, options).then(response => {
+					console.debug(logstr, "block response:", response);
+
+					if (response.status === 403 || response.status === 401) {
+						// user has been logged out, we need to stop queue and re-add
+						consumer.stop();
+						queue.push({ user, user_id, reason });
+						api.storage.local.set({ [EventKey]: { type: UserLogoutEvent } });
+						console.log(logstr, "user is logged out, queue consumer has been halted.");
+					}
+					else if (response.status === 404) {
+						AddUserBlockHistory({ user_id, user, reason }, HistoryStateGone).catch(e => console.error(logstr, e));
+						console.log(logstr, `could not block ${FormatLegacyName(user)}, user no longer exists`);
+					}
+					else if (response.status >= 300) {
+						consumer.stop();
+						queue.push({ user, user_id, reason });
+						console.error(logstr, `failed to block ${FormatLegacyName(user)}, consumer stopped just in case.`, response);
+					}
+					else {
+						blockCounter.increment();
+						AddUserBlockHistory({ user_id, user, reason }).catch(e => console.error(logstr, e));
+						console.log(logstr, `blocked ${FormatLegacyName(user)} due to ${ReasonMap[reason]}.`);
+						api.storage.local.set({ [EventKey]: { type: UserBlockedEvent, user, user_id, reason } })
+					}
+				}).catch(error => {
+					if (attempt < 3) {
+						blockUser(user, user_id, reason, attempt + 1);
+					} else {
+						queue.push({ user, user_id, reason });
+						console.error(logstr, `failed to block ${FormatLegacyName(user)}:`, user, error);
+					}
+				});
 			});
-		});
 	});
 }
 
@@ -419,9 +419,9 @@ export async function BlockBlueVerified(user: BlueBlockerUser, config: Config) {
 					}
 					const timeout = setTimeout(disableSkipLegacy, 1000);  // 1 second. indexed db is crazy fast (<10ms), this should be plenty
 					IsUserLegacyVerified(user.rest_id, user.legacy.screen_name)
-					.then(resolve)
-					.catch(disableSkipLegacy)
-					.finally(() => clearTimeout(timeout));
+						.then(resolve)
+						.catch(disableSkipLegacy)
+						.finally(() => clearTimeout(timeout));
 				})
 			) {
 				console.log(
@@ -443,6 +443,12 @@ export async function BlockBlueVerified(user: BlueBlockerUser, config: Config) {
 				user.legacy?.followers_count > config.skipFollowerCount
 			) {
 				console.log(logstr, `did not block Twitter Blue verified user ${formattedUserName} because they have over ${commafy(config.skipFollowerCount)} followers and Elon is an idiot.`);
+			} else if (
+				// regex username
+				config.skipUserRegex &&
+				CheckUserNameWithRegex(user.legacy?.name, config.skipUserRegexString)
+			) {
+				console.log(logstr, `did not block Twitter Blue verified user ${formattedUserName} because their screen name matched the regex ${config.skipUserRegexString}`);
 			} else {
 				let reason = ReasonBlueVerified;
 				if (hasBlockableVerifiedTypes) {

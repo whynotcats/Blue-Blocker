@@ -2,7 +2,7 @@ import { api, logstr, DefaultOptions, ErrorEvent, EventKey, MessageEvent, Soupca
 import { abbreviate, commafy } from "../utilities.js";
 import "./style.css";
 
-function checkHandler(target: HTMLInputElement, config: Config, key: string, options: { optionName?: string, callback?: (t: HTMLInputElement) => void, statusText?: string } = { }) {
+function checkHandler(target: HTMLInputElement, config: Config, key: string, options: { optionName?: string, callback?: (t: HTMLInputElement) => void, statusText?: string } = {}) {
 	// @ts-ignore
 	const value = config[key];
 	const optionName = options.optionName ?? target.id + "-option";
@@ -19,7 +19,7 @@ function checkHandler(target: HTMLInputElement, config: Config, key: string, opt
 	});
 
 	document.getElementsByName(optionName)
-	.forEach(e => e.style.display = value ? "" : "none");
+		.forEach(e => e.style.display = value ? "" : "none");
 
 	target.addEventListener("input", e => {
 		const target = e.target as HTMLInputElement;
@@ -31,7 +31,7 @@ function checkHandler(target: HTMLInputElement, config: Config, key: string, opt
 				setTimeout(() => status.textContent = null, 1000);
 			});
 			document.getElementsByName(optionName)
-			.forEach(e => e.style.display = target.checked ? "" : "none");
+				.forEach(e => e.style.display = target.checked ? "" : "none");
 		}))(target)).then(() => {
 			// update the checkmark last so that it can be used as the saved status indicator
 			ele.forEach(label => {
@@ -57,14 +57,14 @@ function inputMirror(name: string, value: any, onInput: (e: Event) => void, onIn
 	});
 }
 
-function sliderMirror(name: string, key: "popupTimer" | "blockInterval", config: Config, options: { onInput?: ((e: Event, ele: HTMLInputElement[]) => any) } = { }) {
+function sliderMirror(name: string, key: "popupTimer" | "blockInterval", config: Config, options: { onInput?: ((e: Event, ele: HTMLInputElement[]) => any) } = {}) {
 	const ele = [...document.getElementsByName(name)] as HTMLInputElement[];
 	ele[0].value = config[key].toString();
 	const onInput = options?.onInput ?? ((_e: Event) => {
 		const target = _e.target as HTMLInputElement;
 		ele.forEach(i => i.value = target.value);
 		document.getElementsByName(target.name + "-value")
-		.forEach(v => v.textContent = target.value.toString() + "s");
+			.forEach(v => v.textContent = target.value.toString() + "s");
 	});
 	onInput({ target: ele[0] } as unknown as Event, ele);
 	ele.forEach(input => {
@@ -76,7 +76,7 @@ function sliderMirror(name: string, key: "popupTimer" | "blockInterval", config:
 			const targetValue = parseInt(target.value);
 			const textValue = targetValue.toString() + "s";
 			document.getElementsByName(target.name + "-value")
-			.forEach(e => e.innerText = textValue);
+				.forEach(e => e.innerText = textValue);
 			api.storage.sync.set({
 				[key]: targetValue,
 			}).then(() => {
@@ -91,7 +91,7 @@ function sliderMirror(name: string, key: "popupTimer" | "blockInterval", config:
 }
 
 function exportSafelist() {
-	api.storage.sync.get({ unblocked: { }}).then(items => {
+	api.storage.sync.get({ unblocked: {} }).then(items => {
 		// the unblocked list needs to be put into a different format for export
 		const safelist = items.unblocked as { [k: string]: string | undefined };
 		const content = "user_id,screen_name\n" + Object.entries(safelist).map(i => i[0] + "," + (i[1] ?? "this user's @ is not stored")).join("\n");
@@ -170,6 +170,7 @@ document.addEventListener("DOMContentLoaded", () => {
 	const blockPromoted = document.getElementById("block-promoted-tweets") as HTMLInputElement;
 	const blockNftAvatars = document.getElementById("block-nft-avatars") as HTMLInputElement;
 	const soupcanIntegration = document.getElementById("soupcan-integration") as HTMLInputElement;
+	const skipUserRegex = document.getElementById("skip-user-regex") as HTMLInputElement;
 
 	api.storage.sync.get(DefaultOptions).then(_config => {
 		const config = _config as Config;
@@ -196,15 +197,22 @@ document.addEventListener("DOMContentLoaded", () => {
 		checkHandler(soupcanIntegration, config, "soupcanIntegration", {
 			optionName: "",  // integration isn't controlled by the toggle, so unset
 		});
+		checkHandler(skipUserRegex, config, "skipUserRegex", {
+			optionName: "skip-user-regex-string-option",
+		});
 
 		document.getElementsByName("skip-follower-count-value")
-		.forEach(e => e.innerText = abbreviate(config.skipFollowerCount));
+			.forEach(e => e.innerText = abbreviate(config.skipFollowerCount));
+
+		document.getElementsByName("skip-user-regex-string-value")
+			.forEach(e => e.innerText = config.skipUserRegexString);
+
 		inputMirror("skip-follower-count", config.skipFollowerCount, e => {
 			const target = e.target as HTMLInputElement;
 			const value = parseInt(target.value);
 			const textValue = abbreviate(value);
 			document.getElementsByName("skip-follower-count-value")
-			.forEach(e => e.innerText = textValue);
+				.forEach(e => e.innerText = textValue);
 			api.storage.sync.set({
 				skipFollowerCount: value,
 			}).then(() => {
@@ -214,6 +222,21 @@ document.addEventListener("DOMContentLoaded", () => {
 					setTimeout(() => status.textContent = null, 1000);
 				});
 			});
+		});
+
+		inputMirror("skip-user-regex-string", config.skipUserRegexString, e => {
+			const target = e.target as HTMLInputElement;
+			document.getElementsByName("skip-user-regex-value")
+				.forEach(e => e.innerText = target.value);
+			api.storage.sync.set({
+				skipUserRegexString: target.value,
+			}).then(() => {
+				// Update status to let user know options were saved.
+				document.getElementsByName(target.name + "-status").forEach(status => {
+					status.textContent = "saved";
+					setTimeout(() => status.textContent = null, 1000);
+				});
+			}).catch(e => console.log(logstr, `error saving regex ${e}`));
 		});
 
 		inputMirror("toasts-location", config.toastsLocation, e => {
@@ -230,22 +253,24 @@ document.addEventListener("DOMContentLoaded", () => {
 		});
 
 		sliderMirror("popup-timer", "popupTimer", config);
-		sliderMirror("block-interval", "blockInterval", config, { onInput(e, ele) {
-			const target = e.target as HTMLInputElement;	
-			const targetValue = parseInt(target.value);
-			ele.forEach(i => i.value = target.value);
-			document.getElementsByName("variance")
-			.forEach(e => e.innerText = "±" + (targetValue / 10).toFixed(1) + "s");
-			document.getElementsByName(target.name + "-value")
-			.forEach(v => v.textContent = target.value.toString() + "s");
-		}});
+		sliderMirror("block-interval", "blockInterval", config, {
+			onInput(e, ele) {
+				const target = e.target as HTMLInputElement;
+				const targetValue = parseInt(target.value);
+				ele.forEach(i => i.value = target.value);
+				document.getElementsByName("variance")
+					.forEach(e => e.innerText = "±" + (targetValue / 10).toFixed(1) + "s");
+				document.getElementsByName(target.name + "-value")
+					.forEach(v => v.textContent = target.value.toString() + "s");
+			}
+		});
 
 		// safelist logic
 		// import cannot be done here, only on a standalone page
 		document.getElementsByName("export-safelist").forEach(e => e.addEventListener("click", exportSafelist));
 		document.getElementsByName("clear-safelist").forEach(e => {
 			e.addEventListener("click", () =>
-				api.storage.sync.set({ unblocked: { }}).then(() =>
+				api.storage.sync.set({ unblocked: {} }).then(() =>
 					document.getElementsByName("safelist-status").forEach(s => s.innerText = "cleared safelist.")
 				)
 			);

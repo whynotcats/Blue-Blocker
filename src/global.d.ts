@@ -12,11 +12,13 @@ interface Config {
 	skip1Mplus: boolean,
 	blockNftAvatars: boolean,
 	blockInterval: number,
-	unblocked: { [k: string]: string? },
+	unblocked: { [k: string]: string?},
 	popupTimer: number,
 	skipFollowerCount: number,
 	soupcanIntegration: boolean,
 	blockPromoted: boolean,
+	skipUserRegex: boolean,
+	skipUserRegexString: string,
 }
 
 interface BlueBlockerUser {

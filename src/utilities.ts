@@ -1,18 +1,12 @@
 import { api, logstr, AddToHistoryAction, IsVerifiedAction, RemoveFromHistoryAction, SuccessStatus, HistoryStateBlocked } from "./constants";
 
 export function abbreviate(value: number): string {
-	if (value >= 995e7)
-	{ return `${Math.round(value / 1e9)}B`; }
-	if (value >= 9995e5)
-	{ return `${(value / 1e9).toFixed(1)}B`; }
-	if (value >= 995e4)
-	{ return `${Math.round(value / 1e6)}M`; }
-	if (value >= 9995e2)
-	{ return `${(value / 1e6).toFixed(1)}M`; }
-	if (value >= 9950)
-	{ return `${Math.round(value / 1e3)}K`; }
-	if (value >= 1e3)
-	{ return `${(value / 1e3).toFixed(1)}K`; }
+	if (value >= 995e7) { return `${Math.round(value / 1e9)}B`; }
+	if (value >= 9995e5) { return `${(value / 1e9).toFixed(1)}B`; }
+	if (value >= 995e4) { return `${Math.round(value / 1e6)}M`; }
+	if (value >= 9995e2) { return `${(value / 1e6).toFixed(1)}M`; }
+	if (value >= 9950) { return `${Math.round(value / 1e3)}K`; }
+	if (value >= 1e3) { return `${(value / 1e3).toFixed(1)}K`; }
 	return `${value}`;
 }
 
@@ -110,7 +104,7 @@ export function FormatLegacyName(user: { name: string, screen_name: string }) {
 	return `${legacyName} (@${screenName})`;
 }
 
-export function MakeToast(content: string, config: Config, options: { html?: boolean, warn?: boolean, error?: boolean, elements?: Array<HTMLElement> } = { }) {
+export function MakeToast(content: string, config: Config, options: { html?: boolean, warn?: boolean, error?: boolean, elements?: Array<HTMLElement> } = {}) {
 	const ele = document.getElementById("injected-blue-block-toasts");
 	if (!ele) {
 		throw new Error("blue blocker was unable to create or find toasts div.");
@@ -151,4 +145,8 @@ export function MakeToast(content: string, config: Config, options: { html?: boo
 
 export function EscapeHtml(text: string): string {
 	return new Option(text).innerHTML;
+}
+
+export function CheckUserNameWithRegex(name: string, regex: string): boolean {
+	return !(name.match(regex) == null);
 }

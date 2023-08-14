@@ -247,6 +247,13 @@ input::-webkit-inner-spin-button {
 	-webkit-appearance: none;
 	margin: 0;
 }
+
+input[type=text] {
+	-moz-appearance: textfield;
+	appearance: textfield;
+	text-align: right;
+	height: 1em;
+}
 input[type=number] {
 	-moz-appearance: textfield;
 	appearance: textfield;
@@ -254,7 +261,7 @@ input[type=number] {
 	width: 7em;
 	height: 1em;
 }
-input[type=number], select {
+input[type=number], input[type=text], select {
 	top: -0.1em;
 	position: relative;
 	display: inline-block;
@@ -269,12 +276,12 @@ input[type=number], select {
 	-o-transition: var(--transition) var(--fadetime);
 	transition: var(--transition) var(--fadetime);
 }
-input[type=number]:hover, select:hover {
+input[type=number]:hover, input[type=text], select:hover {
 	color: var(--interact);
 	border-color: var(--borderhover);
 	box-shadow: 0 0 10px 3px var(--activeshadowcolor);
 }
-input[type=number]:focus, select:focus {
+input[type=number]:focus, input[type=text], select:focus {
 	color: var(--textcolor);
 }
 
