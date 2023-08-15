@@ -236,6 +236,7 @@ label.checked div.checkmark div {
 }
 
 .skip-follower-count.option,
+.skip-user-regex-string.option,
 .block-promoted-tweets.option,
 .toasts-location.option {
 	margin-left: 0.5em;
